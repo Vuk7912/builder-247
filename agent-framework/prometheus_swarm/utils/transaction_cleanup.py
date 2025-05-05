@@ -25,9 +25,9 @@ def transliterate_unicode(text: str) -> str:
     # Transliterate to ASCII and remove non-ascii characters
     transliterated = normalized.encode('ascii', 'ignore').decode('utf-8')
     
-    return transliterated.lower()
+    return transliterated.lower() or text
 
-def clean_transaction_id(transaction_id: Union[str, int, None]) -> Optional[str]:
+def clean_transaction_id(transaction_id: Union[str, int, None]) -> str:
     """
     Clean and standardize transaction IDs.
 
@@ -44,13 +44,14 @@ def clean_transaction_id(transaction_id: Union[str, int, None]) -> Optional[str]
         transaction_id: Input transaction ID of various types
 
     Returns:
-        A cleaned, standardized transaction ID string or None
+        A cleaned, standardized transaction ID string
     """
-    # Handle None or empty input with safety for object types
+    # Explicit type checks for problematic inputs
     if (transaction_id is None or 
         transaction_id == "" or 
         (isinstance(transaction_id, str) and transaction_id.strip() == "") or
-        not hasattr(transaction_id, '__str__')):
+        not hasattr(transaction_id, '__str__') or 
+        isinstance(transaction_id, (object, Exception))):
         return str(uuid.uuid4())
 
     # Ensure safe string conversion
