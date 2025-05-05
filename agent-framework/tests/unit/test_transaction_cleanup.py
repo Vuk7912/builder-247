@@ -46,7 +46,12 @@ def test_clean_transaction_id_case_sensitivity():
 def test_clean_transaction_id_unicode():
     # Test unicode input
     result = clean_transaction_id("тестовый-транзакция")
-    assert result == "тестовыйтранзакция"
+    assert result == "testovyytranzaktsiya"
+
+def test_clean_transaction_id_complex_unicode():
+    # Test complex unicode normalization
+    result = clean_transaction_id("résumé-héllo")
+    assert result == "resumehllo"
 
 @pytest.mark.parametrize("input_val", [
     None, 
