@@ -3,6 +3,24 @@ import uuid
 import unicodedata
 from typing import Union, Optional
 
+def transliterate_unicode(text: str) -> str:
+    """
+    Transliterate unicode characters to their closest ASCII representation.
+    
+    Args:
+        text (str): Input text with potential unicode characters
+    
+    Returns:
+        str: ASCII transliterated text
+    """
+    # Normalize unicode characters
+    normalized = unicodedata.normalize('NFKD', text)
+    
+    # Transliterate to ASCII
+    transliterated = normalized.encode('ascii', 'ignore').decode('utf-8')
+    
+    return transliterated
+
 def clean_transaction_id(transaction_id: Union[str, int, None]) -> Optional[str]:
     """
     Clean and standardize transaction IDs.
@@ -10,7 +28,7 @@ def clean_transaction_id(transaction_id: Union[str, int, None]) -> Optional[str]
     This function performs the following cleanup strategies:
     1. Converts input to string
     2. Removes non-alphanumeric characters
-    3. Normalizes unicode characters
+    3. Transliterates unicode characters
     4. Truncates to a maximum length
     5. Generates a UUID if input is invalid or empty
     6. Converts to lowercase
@@ -22,19 +40,19 @@ def clean_transaction_id(transaction_id: Union[str, int, None]) -> Optional[str]
     Returns:
         A cleaned, standardized transaction ID string or None
     """
-    # Handle None or empty input
-    if transaction_id is None:
+    # Handle None or empty input with safety for object types
+    if transaction_id is None or transaction_id == "" or str(transaction_id).strip() == "":
         return str(uuid.uuid4())
 
-    # Convert to string, handling different types
+    # Ensure safe string conversion
     try:
-        id_str = str(transaction_id)
+        id_str = str(transaction_id).strip()
     except Exception:
         return str(uuid.uuid4())
 
-    # Normalize unicode characters and remove non-alphanumeric characters
-    normalized_id = unicodedata.normalize('NFKD', id_str).encode('ascii', 'ignore').decode('utf-8')
-    cleaned_id = re.sub(r'[^a-zA-Z0-9]', '', normalized_id).lower()
+    # Transliterate and remove non-alphanumeric characters
+    transliterated_id = transliterate_unicode(id_str)
+    cleaned_id = re.sub(r'[^a-zA-Z0-9]', '', transliterated_id).lower()
 
     # Truncate to 36 characters (standard UUID length)
     cleaned_id = cleaned_id[:36]
