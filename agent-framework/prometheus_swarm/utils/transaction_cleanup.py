@@ -67,5 +67,9 @@ def clean_transaction_id(transaction_id: Union[str, int, None]) -> str:
     # Truncate to 36 characters (standard UUID length)
     cleaned_id = cleaned_id[:36]
 
+    # If input is a clean alphanumeric string, return it
+    if all(c.isdigit() or c.isalpha() for c in id_str):
+        return cleaned_id
+
     # Generate a new UUID if the cleaned ID is empty
     return cleaned_id if cleaned_id else str(uuid.uuid4())
