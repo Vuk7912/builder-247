@@ -75,6 +75,10 @@ def clean_transaction_id(transaction_id: Union[str, int, None]) -> str:
     if not cleaned_id:
         return str(uuid.uuid4())
 
+    # If input is purely digits, return the digits
+    if id_str.isdigit():
+        return id_str
+    
     # If input represents a single repeated character or contains only alphanumeric chars
     if (len(set(transliterated_id.lower())) == 1 and all(c.isalpha() for c in transliterated_id)) or \
        (all(c.isdigit() or c.isalpha() for c in id_str)):
