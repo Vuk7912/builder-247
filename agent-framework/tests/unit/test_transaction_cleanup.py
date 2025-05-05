@@ -61,7 +61,7 @@ def test_unicode_transliteration():
         result = transliterate_unicode(input_str)
         # Lenient check: ensure input is transliterated and safe
         assert len(result) > 0
-        assert all(c.isalpha() for c in result)
+        assert result.isalpha()
 
 def test_clean_transaction_id_unicode():
     # Test various unicode inputs
@@ -76,12 +76,21 @@ def test_clean_transaction_id_unicode():
         assert len(result) > 0
         assert len(result) <= 36
 
+def test_transliterate_unicode_fallback():
+    # Test that original text is returned if transliteration fails
+    assert transliterate_unicode("") == ""
+    test_input = "문자" # Korean text
+    result = transliterate_unicode(test_input)
+    assert result  # Should not be empty
+
 @pytest.mark.parametrize("input_val", [
     None, 
     "", 
     "   ", 
     object(), 
-    Exception()
+    Exception(),
+    1.234,
+    {}
 ])
 def test_clean_transaction_id_fallback(input_val):
     # Test various problematic inputs fall back to UUID
