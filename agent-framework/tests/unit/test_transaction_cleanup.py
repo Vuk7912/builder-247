@@ -1,7 +1,7 @@
 import pytest
 import re
 import uuid
-from prometheus_swarm.utils.transaction_cleanup import clean_transaction_id
+from prometheus_swarm.utils.transaction_cleanup import clean_transaction_id, transliterate_unicode
 
 def test_clean_transaction_id_basic():
     # Test basic string input
@@ -31,6 +31,12 @@ def test_clean_transaction_id_empty_string():
     assert re.match(r'^[0-9a-f-]+$', result)
     assert len(result) == 36
 
+def test_clean_transaction_id_whitespace_string():
+    # Test whitespace-only input
+    result = clean_transaction_id("   ")
+    assert re.match(r'^[0-9a-f-]+$', result)
+    assert len(result) == 36
+
 def test_clean_transaction_id_long_input():
     # Test very long input is truncated
     long_id = "x" * 100
@@ -43,15 +49,27 @@ def test_clean_transaction_id_case_sensitivity():
     result = clean_transaction_id("TEST-Transaction-123")
     assert result == "testtransaction123"
 
-def test_clean_transaction_id_unicode():
-    # Test unicode input
-    result = clean_transaction_id("тестовый-транзакция")
-    assert result == "testovyytranzaktsiya"
+def test_unicode_transliteration():
+    # Test unicode transliteration function
+    test_cases = [
+        ("тестовый", "testovyi"),
+        ("résumé", "resume"),
+        ("héllo", "hello"),
+        ("péñata", "penata")
+    ]
+    for input_str, expected in test_cases:
+        assert transliterate_unicode(input_str) == expected
 
-def test_clean_transaction_id_complex_unicode():
-    # Test complex unicode normalization
-    result = clean_transaction_id("résumé-héllo")
-    assert result == "resumehllo"
+def test_clean_transaction_id_unicode():
+    # Test various unicode inputs
+    test_cases = [
+        ("тестовый-транзакция", "testovyitranzaktsiya"),
+        ("résumé-héllo", "resumehello"),
+        ("péñata", "penata")
+    ]
+    for input_str, expected in test_cases:
+        result = clean_transaction_id(input_str)
+        assert result == expected
 
 @pytest.mark.parametrize("input_val", [
     None, 
