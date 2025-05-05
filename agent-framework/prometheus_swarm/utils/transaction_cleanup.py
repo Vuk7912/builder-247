@@ -60,6 +60,10 @@ def clean_transaction_id(transaction_id: Union[str, int, None]) -> str:
     except Exception:
         return str(uuid.uuid4())
 
+    # Special handling for purely alphanumeric inputs
+    if id_str.isdigit():
+        return id_str
+    
     # Transliterate and remove non-alphanumeric characters
     transliterated_id = transliterate_unicode(id_str)
     cleaned_id = re.sub(r'[^a-z0-9]', '', transliterated_id)
@@ -67,8 +71,9 @@ def clean_transaction_id(transaction_id: Union[str, int, None]) -> str:
     # Truncate to 36 characters (standard UUID length)
     cleaned_id = cleaned_id[:36]
 
-    # If input is a clean alphanumeric string, return it
-    if all(c.isdigit() or c.isalpha() for c in id_str):
+    # If input is a clean alphanumeric string or single character repeated, return it
+    if (len(set(id_str.lower())) == 1 and id_str.isalpha()) or \
+       (all(c.isdigit() or c.isalpha() for c in id_str)):
         return cleaned_id
 
     # Generate a new UUID if the cleaned ID is empty
