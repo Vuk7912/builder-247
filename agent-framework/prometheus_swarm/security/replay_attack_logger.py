@@ -1,5 +1,5 @@
 import time
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from hashlib import sha256
 from collections import OrderedDict
 
@@ -21,7 +21,8 @@ class ReplayAttackLogger:
             cache_expiry_seconds (int): Time in seconds before a signature expires. 
                 Defaults to 1 hour (3600 seconds).
         """
-        self._request_cache: Dict[str, float] = OrderedDict()
+        self._request_cache: OrderedDict[str, float] = OrderedDict()
+        self._signatures: List[str] = []
         self._max_cache_size = max_cache_size
         self._cache_expiry_seconds = cache_expiry_seconds
     
@@ -72,13 +73,14 @@ class ReplayAttackLogger:
         Args:
             current_time (float): Current timestamp.
         """
-        expired_signatures = [
-            sig for sig, timestamp in list(self._request_cache.items())
-            if current_time - timestamp >= self._cache_expiry_seconds
-        ]
-        
-        for sig in expired_signatures:
-            del self._request_cache[sig]
+        while self._signatures:
+            sig = self._signatures[0]
+            timestamp = self._request_cache.get(sig, 0)
+            if current_time - timestamp >= self._cache_expiry_seconds:
+                del self._request_cache[sig]
+                self._signatures.pop(0)
+            else:
+                break
     
     def _add_signature(self, signature: str, timestamp: float):
         """
@@ -88,9 +90,11 @@ class ReplayAttackLogger:
             signature (str): Request signature.
             timestamp (float): Time of request.
         """
-        # If cache is full, remove the oldest entries
+        # If cache is full, remove the oldest signature
         while len(self._request_cache) >= self._max_cache_size:
-            self._request_cache.popitem(last=False)
+            oldest_sig = self._signatures.pop(0)
+            del self._request_cache[oldest_sig]
         
         # Add new signature
         self._request_cache[signature] = timestamp
+        self._signatures.append(signature)
