@@ -35,6 +35,11 @@ def get_db():
     return Session()
 
 
+def get_db_session():
+    """Alias for get_session for compatibility with tests."""
+    return get_session()
+
+
 def initialize_database():
     """Initialize database tables if they don't exist."""
     inspector = inspect(engine)
