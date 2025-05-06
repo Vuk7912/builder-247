@@ -21,8 +21,8 @@ class ReplayAttackLogger:
             cache_expiry_seconds (int): Time in seconds before a signature expires. 
                 Defaults to 1 hour (3600 seconds).
         """
-        self._request_timestamps: Dict[str, float] = OrderedDict()
-        self._request_order: List[str] = []
+        self._request_cache: Dict[str, float] = OrderedDict()
+        self._signatures: List[str] = []
         self._max_cache_size = max_cache_size
         self._cache_expiry_seconds = cache_expiry_seconds
     
@@ -53,15 +53,15 @@ class ReplayAttackLogger:
         current_time = time.time()
         
         # Clean expired entries
-        while self._request_order and current_time - self._request_timestamps[self._request_order[0]] >= self._cache_expiry_seconds:
-            expired_sig = self._request_order.pop(0)
-            del self._request_timestamps[expired_sig]
+        while self._signatures and current_time - self._request_cache[self._signatures[0]] >= self._cache_expiry_seconds:
+            expired_sig = self._signatures.pop(0)
+            del self._request_cache[expired_sig]
         
         # Generate signature for the request
         signature = self._generate_signature(request_data)
         
         # Check if signature exists in cache
-        if signature in self._request_timestamps:
+        if signature in self._request_cache:
             return True
         
         # Add new signature to cache
@@ -76,11 +76,14 @@ class ReplayAttackLogger:
             signature (str): Request signature.
             timestamp (float): Time of request.
         """
-        # If cache is full, remove the oldest entries
-        while len(self._request_timestamps) >= self._max_cache_size and self._request_order:
-            oldest_sig = self._request_order.pop(0)
-            del self._request_timestamps[oldest_sig]
+        # If cache is full, remove the oldest signature
+        while len(self._request_cache) >= self._max_cache_size:
+            # Remove the oldest signature
+            oldest_sig = self._signatures.pop(0)
+            del self._request_cache[oldest_sig]
         
         # Add new signature
-        self._request_timestamps[signature] = timestamp
-        self._request_order.append(signature)
+        self._request_cache[signature] = timestamp
+        
+        # Track the signature
+        self._signatures.append(signature)
