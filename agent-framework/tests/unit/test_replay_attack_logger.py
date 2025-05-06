@@ -60,10 +60,11 @@ def test_replay_attack_logger_max_cache_size():
         requests_second_batch.append(request)
         assert not logger.is_replay_request(request)
     
-    # At this point, both first_batch and second_batch should replay
+    # The first batch requests will be removed from cache
     for request in requests_first_batch:
-        assert logger.is_replay_request(request)
+        assert not logger.is_replay_request(request)
     
+    # The second batch remains cached
     for request in requests_second_batch:
         assert logger.is_replay_request(request)
 
