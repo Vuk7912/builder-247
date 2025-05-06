@@ -1,6 +1,6 @@
 import { Router, RequestHandler } from "express";
 import { verifyBearerToken } from "../middleware/auth";
-import createNonceMiddleware from "../middleware/nonce";
+import nonceMiddleware from "../middleware/nonce";
 
 /******** Builder *********/
 import { fetchTodo } from "../controllers/builder/fetchToDo";
@@ -38,20 +38,20 @@ import { info } from "../controllers/prometheus/info";
 
 const router = Router();
 
-// Optional Nonce Middleware for sensitive routes
-const nonceRoutes = [
+// Routes requiring nonce authentication
+const nonceProtectedRoutes = [
   "/builder/add-aggregator-info",
   "/builder/add-pr-to-to-do",
-  "/builder/add-issue-pr",
+  "/builder/add-issue-pr", 
   "/builder/assign-issue",
   "/summarizer/add-pr-to-summarizer-todo",
   "/planner/add-pr-to-planner-todo",
   "/supporter/bind-key-to-github"
 ];
 
-// Dynamically apply nonce middleware to sensitive routes
-nonceRoutes.forEach(route => {
-  router.use(route, createNonceMiddleware);
+// Apply nonce middleware to specified routes
+nonceProtectedRoutes.forEach(route => {
+  router.use(route, nonceMiddleware);
 });
 
 /********** Builder ***********/
