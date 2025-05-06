@@ -1,10 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
-import { logger } from '../utils/logging'; // Assuming a centralized logging utility
 
-// Nonce configuration
+// Nonce Configuration
 const NONCE_MAX_AGE_MS = 5 * 60 * 1000; // 5 minutes
-const MAX_NONCE_STORAGE = 10000; // Limit nonce storage to prevent memory issues
+const MAX_NONCE_STORAGE = 10000;
 
 class NonceManager {
   private usedNonces: Map<string, number>;
@@ -14,7 +13,7 @@ class NonceManager {
   }
 
   /**
-   * Generate a secure nonce
+   * Generate a cryptographically secure nonce
    * @returns {string} Base64 encoded nonce
    */
   generateNonce(): string {
@@ -32,16 +31,11 @@ class NonceManager {
 
     // Check timestamp is within acceptable range
     if (Math.abs(currentTime - timestamp) > NONCE_MAX_AGE_MS) {
-      logger.warn(`Nonce validation failed: Timestamp out of range`, { 
-        currentTime, 
-        timestamp 
-      });
       return false;
     }
 
     // Check if nonce has been used
     if (this.usedNonces.has(nonce)) {
-      logger.warn(`Nonce validation failed: Nonce already used`, { nonce });
       return false;
     }
 
@@ -93,10 +87,6 @@ export function nonceMiddleware(req: Request, res: Response, next: NextFunction)
 
   // Validate presence of nonce and timestamp
   if (!nonce || !timestamp) {
-    logger.warn('Nonce or timestamp missing', { 
-      nonce: !!nonce, 
-      timestamp: !!timestamp 
-    });
     res.status(400).json({ 
       error: 'Nonce and timestamp are required' 
     });
@@ -106,7 +96,6 @@ export function nonceMiddleware(req: Request, res: Response, next: NextFunction)
   // Parse timestamp
   const timestampNum = parseInt(timestamp as string, 10);
   if (isNaN(timestampNum)) {
-    logger.warn('Invalid timestamp format', { timestamp });
     res.status(400).json({ 
       error: 'Invalid timestamp format' 
     });
@@ -120,10 +109,6 @@ export function nonceMiddleware(req: Request, res: Response, next: NextFunction)
   );
 
   if (!isValid) {
-    logger.warn('Nonce validation failed', { 
-      nonce, 
-      timestamp: timestampNum 
-    });
     res.status(400).json({ 
       error: 'Invalid or expired nonce' 
     });
@@ -133,6 +118,10 @@ export function nonceMiddleware(req: Request, res: Response, next: NextFunction)
   next();
 }
 
+/**
+ * Generate a new nonce for client use
+ * @returns {string} Generated nonce
+ */
 export function generateNonce(): string {
   return nonceManager.generateNonce();
 }
