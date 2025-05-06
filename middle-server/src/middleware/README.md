@@ -1,28 +1,29 @@
-# Middleware Documentation
+# Nonce Middleware
 
-## Nonce Middleware
-
-### Purpose
+## Purpose
 The Nonce Middleware provides an additional layer of security to prevent replay attacks and ensure request authenticity.
 
-### How it Works
+## Features
+- Generates cryptographically secure nonces
+- Validates request timestamps
+- Prevents replay attacks
+- Configurable nonce lifetime
+- Logging of security events
+
+## How It Works
 1. Each sensitive request must include two headers:
    - `nonce`: A unique, cryptographically secure random string
    - `timestamp`: The current timestamp in milliseconds
 
-2. The middleware validates that:
-   - The nonce has not been used before
-   - The timestamp is within a valid time window (default: 5 minutes)
+2. Validation Checks:
+   - Nonce must be present and unique
+   - Timestamp must be within a 5-minute window
+   - Prevents reusing nonces
 
-### Usage
+## Usage Example
 ```typescript
-// Automatically applied to sensitive routes
-router.post("/your/sensitive/route", handler);
-```
-
-### Client Example
-```typescript
-const nonce = generateNonce(); // Your nonce generation method
+// Client-side request
+const nonce = generateNonce();
 const timestamp = Date.now();
 
 fetch('/your/route', {
@@ -30,15 +31,21 @@ fetch('/your/route', {
   headers: {
     'nonce': nonce,
     'timestamp': timestamp.toString()
-  },
-  // other request details
+  }
 });
 ```
 
-### Security Benefits
+## Security Benefits
 - Prevents replay attacks
-- Ensures request freshness
-- Adds a layer of request authentication
+- Adds request authentication layer
+- Logs potential security events
+- Configurable and extensible
 
-### Configurable Options
-The nonce middleware can be customized by providing a custom `NonceMiddleware` implementation.
+## Configuration
+- Default nonce lifetime: 5 minutes
+- Maximum nonce storage: 10,000 entries
+
+## Logging
+Security events are logged using Winston logger with:
+- Console output
+- File-based security audit logs
