@@ -10,6 +10,7 @@ setup(
         "python-dotenv>=0.19.0",
         "pydantic>=2.0.0",
         "sqlalchemy>=2.0.0",
+        "sqlmodel>=0.15.0",  # Added SQLModel
         "pytest>=7.0.0",
         "requests>=2.0.0",
         "python-jose>=3.0.0",
