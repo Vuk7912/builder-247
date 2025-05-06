@@ -5,7 +5,7 @@ from sqlalchemy import inspect
 from sqlmodel import SQLModel
 from contextlib import contextmanager
 from typing import Optional, Dict, Any
-from .models import Conversation, Message, Log
+from .models import Conversation, Message, Log, Evidence
 import json
 
 # Import engine from shared config
