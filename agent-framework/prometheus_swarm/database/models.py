@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from typing import Optional, List
-from sqlmodel import SQLModel, Field, Relationship
+from sqlmodel import SQLModel, Field, Relationship, UniqueConstraint
 
 
 class Conversation(SQLModel, table=True):
@@ -42,3 +42,23 @@ class Log(SQLModel, table=True):
     stack_trace: Optional[str] = None
     request_id: Optional[str] = None
     additional_data: Optional[str] = None
+
+
+class Evidence(SQLModel, table=True):
+    """Evidence model to track unique evidence entries."""
+
+    __table_args__ = (
+        UniqueConstraint(
+            "source_repo", 
+            "source_url", 
+            "evidence_type", 
+            name="unique_evidence_constraint"
+        ),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    source_repo: str = Field(index=True)
+    source_url: str = Field(index=True)
+    evidence_type: str = Field(index=True)
+    content: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
