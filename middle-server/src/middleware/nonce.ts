@@ -1,21 +1,20 @@
 import { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
+import { logger } from '../utils/logging'; // Assuming a centralized logging utility
 
-// Store of used nonces to prevent replay attacks
-const usedNonces = new Set<string>();
+// Nonce configuration
+const NONCE_MAX_AGE_MS = 5 * 60 * 1000; // 5 minutes
+const MAX_NONCE_STORAGE = 10000; // Limit nonce storage to prevent memory issues
 
-// Max age for nonces (5 minutes)
-const NONCE_MAX_AGE_MS = 5 * 60 * 1000;
+class NonceManager {
+  private usedNonces: Map<string, number>;
 
-// Nonce generation and validation interface
-export interface NonceMiddleware {
-  generateNonce(): string;
-  validateNonce(nonce: string, timestamp: number): boolean;
-}
+  constructor() {
+    this.usedNonces = new Map();
+  }
 
-export class DefaultNonceMiddleware implements NonceMiddleware {
   /**
-   * Generate a cryptographically secure random nonce
+   * Generate a secure nonce
    * @returns {string} Base64 encoded nonce
    */
   generateNonce(): string {
@@ -23,77 +22,119 @@ export class DefaultNonceMiddleware implements NonceMiddleware {
   }
 
   /**
-   * Validate a nonce to prevent replay attacks
-   * @param nonce - The nonce to validate
-   * @param timestamp - Timestamp of the request
-   * @returns {boolean} Whether the nonce is valid
+   * Validate and track nonce
+   * @param nonce - Nonce to validate
+   * @param timestamp - Request timestamp
+   * @returns {boolean} Nonce validity
    */
   validateNonce(nonce: string, timestamp: number): boolean {
-    // Check if nonce has been used before
-    if (usedNonces.has(nonce)) {
-      return false;
-    }
-
-    // Check timestamp is not too old
     const currentTime = Date.now();
+
+    // Check timestamp is within acceptable range
     if (Math.abs(currentTime - timestamp) > NONCE_MAX_AGE_MS) {
+      logger.warn(`Nonce validation failed: Timestamp out of range`, { 
+        currentTime, 
+        timestamp 
+      });
       return false;
     }
 
-    // Mark nonce as used and clean up old nonces
-    usedNonces.add(nonce);
-    this.cleanupNonces();
+    // Check if nonce has been used
+    if (this.usedNonces.has(nonce)) {
+      logger.warn(`Nonce validation failed: Nonce already used`, { nonce });
+      return false;
+    }
+
+    // Track the nonce
+    this.usedNonces.set(nonce, currentTime);
+
+    // Periodic cleanup to prevent memory growth
+    this.cleanupNonces(currentTime);
 
     return true;
   }
 
   /**
-   * Clean up old nonces from the set
-   * @private
+   * Clean up old nonces to prevent memory growth
+   * @param currentTime - Current timestamp
    */
-  private cleanupNonces(): void {
-    const currentTime = Date.now();
-    for (const nonce of usedNonces) {
-      // Remove nonces that are too old
-      if (Math.abs(currentTime - parseInt(nonce.split('_')[1])) > NONCE_MAX_AGE_MS) {
-        usedNonces.delete(nonce);
+  private cleanupNonces(currentTime: number): void {
+    // Prevent unbounded growth
+    if (this.usedNonces.size > MAX_NONCE_STORAGE) {
+      const oldestEntries = Array.from(this.usedNonces.entries())
+        .sort((a, b) => a[1] - b[1])
+        .slice(0, this.usedNonces.size - MAX_NONCE_STORAGE);
+
+      oldestEntries.forEach(([nonce]) => {
+        this.usedNonces.delete(nonce);
+      });
+    }
+
+    // Remove nonces older than max age
+    for (const [nonce, timestamp] of this.usedNonces.entries()) {
+      if (currentTime - timestamp > NONCE_MAX_AGE_MS) {
+        this.usedNonces.delete(nonce);
       }
     }
   }
 }
 
+// Singleton instance of NonceManager
+const nonceManager = new NonceManager();
+
 /**
- * Middleware to validate request nonce
- * @param nonceMiddleware - Nonce middleware implementation
- * @returns {Function} Express middleware function
+ * Nonce middleware for request authentication
+ * @param req - Express request
+ * @param res - Express response
+ * @param next - Next middleware function
  */
-export const createNonceMiddleware = (
-  nonceMiddleware: NonceMiddleware = new DefaultNonceMiddleware()
-) => {
-  return (req: Request, res: Response, next: NextFunction) => {
-    const { nonce, timestamp } = req.headers;
+export function nonceMiddleware(req: Request, res: Response, next: NextFunction): void {
+  const { nonce, timestamp } = req.headers;
 
-    // Nonce and timestamp are required
-    if (!nonce || !timestamp) {
-      return res.status(400).json({ 
-        error: 'Nonce and timestamp are required' 
-      });
-    }
+  // Validate presence of nonce and timestamp
+  if (!nonce || !timestamp) {
+    logger.warn('Nonce or timestamp missing', { 
+      nonce: !!nonce, 
+      timestamp: !!timestamp 
+    });
+    res.status(400).json({ 
+      error: 'Nonce and timestamp are required' 
+    });
+    return;
+  }
 
-    // Validate nonce
-    const isValid = nonceMiddleware.validateNonce(
-      nonce as string, 
-      parseInt(timestamp as string, 10)
-    );
+  // Parse timestamp
+  const timestampNum = parseInt(timestamp as string, 10);
+  if (isNaN(timestampNum)) {
+    logger.warn('Invalid timestamp format', { timestamp });
+    res.status(400).json({ 
+      error: 'Invalid timestamp format' 
+    });
+    return;
+  }
 
-    if (!isValid) {
-      return res.status(401).json({ 
-        error: 'Invalid or expired nonce' 
-      });
-    }
+  // Validate nonce
+  const isValid = nonceManager.validateNonce(
+    nonce as string, 
+    timestampNum
+  );
 
-    next();
-  };
-};
+  if (!isValid) {
+    logger.warn('Nonce validation failed', { 
+      nonce, 
+      timestamp: timestampNum 
+    });
+    res.status(400).json({ 
+      error: 'Invalid or expired nonce' 
+    });
+    return;
+  }
 
-export default createNonceMiddleware();
+  next();
+}
+
+export function generateNonce(): string {
+  return nonceManager.generateNonce();
+}
+
+export default nonceMiddleware;
