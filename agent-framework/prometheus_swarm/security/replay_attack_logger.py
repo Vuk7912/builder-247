@@ -21,7 +21,8 @@ class ReplayAttackLogger:
             cache_expiry_seconds (int): Time in seconds before a signature expires. 
                 Defaults to 1 hour (3600 seconds).
         """
-        self._request_timestamps: Dict[str, float] = {}
+        self._request_timestamps: Dict[str, float] = OrderedDict()
+        self._request_order: List[str] = []
         self._max_cache_size = max_cache_size
         self._cache_expiry_seconds = cache_expiry_seconds
     
@@ -52,7 +53,9 @@ class ReplayAttackLogger:
         current_time = time.time()
         
         # Clean expired entries
-        self._clean_expired_timestamps(current_time)
+        while self._request_order and current_time - self._request_timestamps[self._request_order[0]] >= self._cache_expiry_seconds:
+            expired_sig = self._request_order.pop(0)
+            del self._request_timestamps[expired_sig]
         
         # Generate signature for the request
         signature = self._generate_signature(request_data)
@@ -65,21 +68,6 @@ class ReplayAttackLogger:
         self._add_signature(signature, current_time)
         return False
     
-    def _clean_expired_timestamps(self, current_time: float):
-        """
-        Remove expired signatures from the cache.
-        
-        Args:
-            current_time (float): Current timestamp.
-        """
-        expired_signatures = [
-            sig for sig, timestamp in list(self._request_timestamps.items())
-            if current_time - timestamp >= self._cache_expiry_seconds
-        ]
-        
-        for sig in expired_signatures:
-            del self._request_timestamps[sig]
-    
     def _add_signature(self, signature: str, timestamp: float):
         """
         Add a signature to the cache, managing maximum cache size.
@@ -88,14 +76,11 @@ class ReplayAttackLogger:
             signature (str): Request signature.
             timestamp (float): Time of request.
         """
-        # Remove oldest entries if cache is full
-        while len(self._request_timestamps) >= self._max_cache_size:
-            # Find and remove the oldest timestamp
-            oldest_sig = min(
-                self._request_timestamps, 
-                key=lambda sig: self._request_timestamps[sig]
-            )
+        # If cache is full, remove the oldest entries
+        while len(self._request_timestamps) >= self._max_cache_size and self._request_order:
+            oldest_sig = self._request_order.pop(0)
             del self._request_timestamps[oldest_sig]
         
         # Add new signature
         self._request_timestamps[signature] = timestamp
+        self._request_order.append(signature)
