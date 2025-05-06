@@ -21,10 +21,11 @@ class ReplayAttackLogger:
             cache_expiry_seconds (int): Time in seconds before a signature expires. 
                 Defaults to 1 hour (3600 seconds).
         """
-        self._request_cache: OrderedDict[str, float] = OrderedDict()
+        self._request_cache: Dict[str, float] = {}
         self._signatures: List[str] = []
         self._max_cache_size = max_cache_size
         self._cache_expiry_seconds = cache_expiry_seconds
+        self._last_cache_time = time.time()
     
     def _generate_signature(self, request_data: Dict[Any, Any]) -> str:
         """
@@ -52,8 +53,10 @@ class ReplayAttackLogger:
         """
         current_time = time.time()
         
-        # Clean expired entries
-        self._clean_expired_cache(current_time)
+        # Clean expired entries periodically (every 10 seconds)
+        if current_time - self._last_cache_time > 10:
+            self._clean_expired_cache(current_time)
+            self._last_cache_time = current_time
         
         # Generate signature for the request
         signature = self._generate_signature(request_data)
@@ -73,14 +76,15 @@ class ReplayAttackLogger:
         Args:
             current_time (float): Current timestamp.
         """
-        while self._signatures:
-            sig = self._signatures[0]
-            timestamp = self._request_cache.get(sig, 0)
+        expired_signatures = []
+        for sig, timestamp in list(self._request_cache.items()):
             if current_time - timestamp >= self._cache_expiry_seconds:
-                del self._request_cache[sig]
-                self._signatures.pop(0)
-            else:
-                break
+                expired_signatures.append(sig)
+        
+        for sig in expired_signatures:
+            del self._request_cache[sig]
+            # Remove any matching signatures from the tracking list
+            self._signatures = [s for s in self._signatures if s != sig]
     
     def _add_signature(self, signature: str, timestamp: float):
         """
@@ -91,10 +95,18 @@ class ReplayAttackLogger:
             timestamp (float): Time of request.
         """
         # If cache is full, remove the oldest signature
-        while len(self._request_cache) >= self._max_cache_size:
+        while len(self._request_cache) >= self._max_cache_size and self._signatures:
             oldest_sig = self._signatures.pop(0)
             del self._request_cache[oldest_sig]
         
         # Add new signature
         self._request_cache[signature] = timestamp
+        
+        # Track the signature order
+        if len(self._signatures) >= self._max_cache_size:
+            # Remove the oldest signature if at max size
+            oldest_sig = self._signatures.pop(0)
+            del self._request_cache[oldest_sig]
+        
+        # Add the new signature to the tracking list
         self._signatures.append(signature)
