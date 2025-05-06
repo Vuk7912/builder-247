@@ -51,7 +51,7 @@ const nonceProtectedRoutes = [
 
 // Apply nonce middleware to specified routes
 nonceProtectedRoutes.forEach(route => {
-  router.use(route, nonceMiddleware);
+  router.post(route, nonceMiddleware);
 });
 
 /********** Builder ***********/
