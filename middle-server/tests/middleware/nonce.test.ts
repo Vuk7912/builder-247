@@ -1,14 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
 import { nonceMiddleware, generateNonce } from '../../src/middleware/nonce';
-import { logger } from '../../src/utils/logging';
-
-// Mock logger to prevent actual logging during tests
-jest.mock('../../src/utils/logging', () => ({
-  logger: {
-    warn: jest.fn(),
-    error: jest.fn()
-  }
-}));
 
 describe('Nonce Middleware', () => {
   let mockReq: Partial<Request>;
@@ -26,9 +17,6 @@ describe('Nonce Middleware', () => {
     };
 
     mockNext = jest.fn();
-
-    // Clear mock calls before each test
-    jest.clearAllMocks();
   });
 
   it('should generate unique nonces', () => {
