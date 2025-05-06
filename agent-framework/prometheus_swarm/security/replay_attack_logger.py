@@ -1,6 +1,7 @@
 import time
 from typing import Dict, Any, Optional
 from hashlib import sha256
+from collections import OrderedDict
 
 class ReplayAttackLogger:
     """
@@ -20,10 +21,9 @@ class ReplayAttackLogger:
             cache_expiry_seconds (int): Time in seconds before a signature expires. 
                 Defaults to 1 hour (3600 seconds).
         """
-        self._request_cache: Dict[str, float] = {}
+        self._request_cache: Dict[str, float] = OrderedDict()
         self._max_cache_size = max_cache_size
         self._cache_expiry_seconds = cache_expiry_seconds
-        self._request_timestamps: list = []
     
     def _generate_signature(self, request_data: Dict[Any, Any]) -> str:
         """
@@ -72,11 +72,13 @@ class ReplayAttackLogger:
         Args:
             current_time (float): Current timestamp.
         """
-        # Remove all expired timestamps and their corresponding signatures
-        while self._request_timestamps and current_time - self._request_timestamps[0][1] >= self._cache_expiry_seconds:
-            expired_sig = self._request_timestamps.pop(0)[0]
-            if expired_sig in self._request_cache:
-                del self._request_cache[expired_sig]
+        expired_signatures = [
+            sig for sig, timestamp in list(self._request_cache.items())
+            if current_time - timestamp >= self._cache_expiry_seconds
+        ]
+        
+        for sig in expired_signatures:
+            del self._request_cache[sig]
     
     def _add_signature(self, signature: str, timestamp: float):
         """
@@ -86,11 +88,9 @@ class ReplayAttackLogger:
             signature (str): Request signature.
             timestamp (float): Time of request.
         """
-        # Remove oldest entries if cache is full
+        # If cache is full, remove the oldest entries
         while len(self._request_cache) >= self._max_cache_size:
-            oldest_sig, _ = self._request_timestamps.pop(0)
-            if oldest_sig in self._request_cache:
-                del self._request_cache[oldest_sig]
+            self._request_cache.popitem(last=False)
         
+        # Add new signature
         self._request_cache[signature] = timestamp
-        self._request_timestamps.append((signature, timestamp))
