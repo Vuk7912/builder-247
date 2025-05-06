@@ -8,7 +8,6 @@ The Nonce Middleware provides an additional layer of security to prevent replay 
 - Validates request timestamps
 - Prevents replay attacks
 - Configurable nonce lifetime
-- Logging of security events
 
 ## How It Works
 1. Each sensitive request must include two headers:
@@ -38,14 +37,8 @@ fetch('/your/route', {
 ## Security Benefits
 - Prevents replay attacks
 - Adds request authentication layer
-- Logs potential security events
 - Configurable and extensible
 
 ## Configuration
 - Default nonce lifetime: 5 minutes
 - Maximum nonce storage: 10,000 entries
-
-## Logging
-Security events are logged using Winston logger with:
-- Console output
-- File-based security audit logs
