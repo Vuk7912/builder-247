@@ -47,23 +47,26 @@ def test_replay_attack_logger_max_cache_size():
     logger = ReplayAttackLogger(max_cache_size=max_size, cache_expiry_seconds=3600)
     
     # First, add max_size unique requests
+    requests_first_batch = []
     for i in range(max_size):
         request = {"user_id": i, "action": "login"}
+        requests_first_batch.append(request)
         assert not logger.is_replay_request(request)
     
     # Add more requests to exceed cache size
+    requests_second_batch = []
     for i in range(max_size, max_size * 2):
         request = {"user_id": i, "action": "login"}
+        requests_second_batch.append(request)
         assert not logger.is_replay_request(request)
     
-    # Verify that only the last max_size requests are cached
-    for i in range(max_size):
-        request = {"user_id": i, "action": "login"}
-        assert not logger.is_replay_request(request)  # These are now too old
+    # First batch should not be in cache anymore
+    for request in requests_first_batch:
+        assert not logger.is_replay_request(request)
     
-    for i in range(max_size, max_size * 2):
-        request = {"user_id": i, "action": "login"}
-        assert logger.is_replay_request(request)  # These are cached
+    # Second batch should be cached
+    for request in requests_second_batch:
+        assert logger.is_replay_request(request)
 
 def test_replay_attack_logger_request_order_invariance():
     """Test that request order does not affect replay detection."""
